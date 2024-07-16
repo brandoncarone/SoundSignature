@@ -3,6 +3,7 @@ venv/
 additions.py
 essentia/
 separated_files/
+songs_separated/
 uploaded_files/
 conversation_log.csv
 __pycache__

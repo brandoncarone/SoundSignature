@@ -3,6 +3,10 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/condaenv" />
+      <excludeFolder url="file://$MODULE_DIR$/essentia/.waf3-2.0.25-6b4747713db596ddf244252447853266" />
+      <excludeFolder url="file://$MODULE_DIR$/essentia/build" />
+      <excludeFolder url="file://$MODULE_DIR$/separated_files" />
+      <excludeFolder url="file://$MODULE_DIR$/uploaded_files" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (WTOMDYL)" jdkType="Python SDK" />
