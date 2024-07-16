@@ -1,0 +1,8 @@
+.env
+venv/
+additions.py
+essentia/
+separated_files/
+uploaded_files/
+conversation_log.csv
+__pycache__
