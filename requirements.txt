@@ -46,7 +46,6 @@ docutils==0.20.1
 dora_search==0.1.12
 einops==0.8.0
 entrypoints==0.4
-essentia-tensorflow==2.1b6.dev1177
 exceptiongroup==1.2.0
 executing==2.0.1
 fastjsonschema==2.19.1
