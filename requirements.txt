@@ -11,7 +11,7 @@ asttokens==2.4.1
 astunparse==1.6.3
 async-lru==2.0.4
 attrs==23.2.0
-audio-recorder-streamlit==0.0.9
+audio-recorder-streamlit
 audioread==3.0.1
 Babel==2.14.0
 backcall==0.2.0
