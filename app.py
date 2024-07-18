@@ -25,7 +25,7 @@ import time
 import pandas as pd
 from datetime import datetime
 #import crema
-import basic_pitch
+#import basic_pitch
 
 dotenv.load_dotenv()
 

@@ -15,7 +15,6 @@ audio-recorder-streamlit
 audioread==3.0.1
 Babel==2.14.0
 backcall==0.2.0
-basic-pitch==0.3.3
 beautifulsoup4==4.12.3
 black==24.3.0
 bleach==6.1.0
@@ -26,7 +25,6 @@ certifi==2024.2.2
 cffi==1.16.0
 chardet==5.2.0
 charset-normalizer==3.3.2
-chord-extractor==0.1.2
 click==8.1.7
 cloudpickle==3.0.0
 comm==0.2.2
