@@ -42,24 +42,6 @@ output_dir = "separated_files"
 extensions = ['mp3', 'wav', 'flac', 'ogg']
 
 
-# # Function to create a thread and run the assistant
-# def run_assistant(client, conversation):
-#
-#     thread = client.beta.threads.create(messages=conversation)
-#     run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=os.getenv("OPENAI_ASSISTANT_ID"))
-#
-#     while run.status != "completed":
-#         with st.spinner("Comparing songs..."):
-#             run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-#
-#     message_response = client.beta.threads.messages.list(thread_id=thread.id)
-#     messages = message_response.data
-#
-#     # Accessing the last message and getting the text content properly
-#     latest_message = messages[0]
-#     # Return the latest message and all messages
-#     return latest_message.content[0].text.value
-
 # Function to create a thread and run the assistant with streaming response
 def run_assistant(client, conversation):
     thread = client.beta.threads.create(messages=conversation)
