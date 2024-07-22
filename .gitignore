@@ -1,5 +1,5 @@
-.env
 venv/
+.env
 additions.py
 separated_files/
 songs_separated/

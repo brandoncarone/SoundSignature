@@ -2,14 +2,17 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <excludeFolder url="file://$MODULE_DIR$/condaenv" />
       <excludeFolder url="file://$MODULE_DIR$/essentia/.waf3-2.0.25-6b4747713db596ddf244252447853266" />
       <excludeFolder url="file://$MODULE_DIR$/essentia/build" />
       <excludeFolder url="file://$MODULE_DIR$/separated_files" />
       <excludeFolder url="file://$MODULE_DIR$/uploaded_files" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.9 (venv)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.9 (SoundSignature)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+  <component name="PackageRequirementsSettings">
+    <option name="versionSpecifier" value="Strong equality (==x.y.z)" />
+    <option name="removeUnused" value="true" />
   </component>
 </module>
