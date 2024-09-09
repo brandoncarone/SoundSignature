@@ -1,7 +1,7 @@
 libsndfile1
 ffmpeg
-eigen
-libyaml
-fftw
-libsamplerate
-libtag
+libeigen3-dev
+libyaml-dev
+libfftw3-dev
+libsamplerate0-dev
+libtag1-dev
