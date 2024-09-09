@@ -16,4 +16,4 @@ streamlit==1.35.0
 git+https://github.com/CPJKU/madmom
 setuptools==68.2.0
 audio-recorder-streamlit
-git+https://github.com/facebookresearch/demucs/
+git+https://github.com/facebookresearch/demucs#egg=demucs
