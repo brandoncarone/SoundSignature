@@ -45,7 +45,7 @@ extensions = ['mp3', 'wav', 'flac', 'ogg']
 # Function to create a thread and run the assistant with streaming response
 def run_assistant(client, conversation):
     thread = client.beta.threads.create(messages=conversation)
-    run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=os.getenv("OPENAI_ASSISTANT_ID"), stream=True)
+    run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=st.secrets["OPENAI_ASSISTANT_ID"], stream=True)
 
     latest_message_content = ""
 
@@ -343,7 +343,7 @@ def main():
     #         st.write("#")
     #
     # else:
-    openai_api_key = os.getenv("OPENAI_API_KEY")
+    openai_api_key = st.secrets["OPENAI_API_KEY"]
     client = OpenAI(api_key=openai_api_key)
 
 

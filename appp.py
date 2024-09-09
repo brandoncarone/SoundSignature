@@ -24,6 +24,8 @@ import shutil
 import time
 import pandas as pd
 from datetime import datetime
+#import crema
+#import basic_pitch
 
 dotenv.load_dotenv()
 
@@ -39,24 +41,6 @@ upload_dir = "uploaded_files"
 output_dir = "separated_files"
 extensions = ['mp3', 'wav', 'flac', 'ogg']
 
-
-# # Function to create a thread and run the assistant
-# def run_assistant(client, conversation):
-#
-#     thread = client.beta.threads.create(messages=conversation)
-#     run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=os.getenv("OPENAI_ASSISTANT_ID"))
-#
-#     while run.status != "completed":
-#         with st.spinner("Comparing songs..."):
-#             run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-#
-#     message_response = client.beta.threads.messages.list(thread_id=thread.id)
-#     messages = message_response.data
-#
-#     # Accessing the last message and getting the text content properly
-#     latest_message = messages[0]
-#     # Return the latest message and all messages
-#     return latest_message.content[0].text.value
 
 # Function to create a thread and run the assistant with streaming response
 def run_assistant(client, conversation):
@@ -125,7 +109,6 @@ def analyze_audio(file):
     stft = librosa.stft(y)
     magnitude_spectrogram = np.abs(stft)
 
-    chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
     tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
     pulse_clarity = np.std(onset_env)
@@ -148,7 +131,7 @@ def analyze_audio(file):
     key_extractor = es.KeyExtractor()
     key, scale, strength = key_extractor(audio)
 
-    return sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, chroma, tempo, beats, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
+    return sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
 
 def format_analysis_results_for_prompt(results):
     formatted_results = []
@@ -156,9 +139,6 @@ def format_analysis_results_for_prompt(results):
         formatted_result = f"""
         Song: {result['file_name']}
         Duration: {result['duration']:.2f} seconds
-        Max Amplitude: {result['max_amplitude']}
-        Min Amplitude: {result['min_amplitude']}
-        Mean Amplitude: {result['mean_amplitude']}
         Tempo: {result['tempo']} BPM
         Pulse Clarity (std of onset strength): {result['pulse_clarity']}
         Key: {result['key']}
@@ -260,6 +240,17 @@ def display_audio_files(files):
                 mime="audio/mp3"
             )
 
+        y, sr = librosa.load(file)
+        stft = librosa.stft(y)
+        mag_spectrogram = np.abs(stft)
+        fig, ax = plt.subplots(figsize=(12, 6))
+        spectrogram = librosa.amplitude_to_db(mag_spectrogram)
+        img = librosa.display.specshow(spectrogram, sr=sr, x_axis='time', y_axis='log', ax=ax)
+        ax.set_title('Spectrogram')
+        fig.colorbar(img, ax=ax, format="%+2.0f dB")
+
+        st.pyplot(fig)
+
 def clear_upload_dir(upload_dir):
     if os.path.exists(upload_dir):
         shutil.rmtree(upload_dir)
@@ -307,6 +298,9 @@ def main():
     if 'chosen_file_path' not in st.session_state:
         st.session_state.chosen_file_path = None
 
+    if 'questions_asked' not in st.session_state:
+        st.session_state['questions_asked'] = {}
+
     # Initialize special_action
     special_action = False
 
@@ -330,312 +324,351 @@ def main():
     # # --- Header ---
     # st.html("""<h1 style="text-align: center; color: #6ca395;">🤖🎵 <i>What Type of Music Do You Like?</i> 💬</h1>""")
 
-    # --- Side Bar ---
+    # # --- Side Bar ---
+    # with st.sidebar:
+    #     default_openai_api_key = os.getenv("OPENAI_API_KEY") if os.getenv(
+    #         "OPENAI_API_KEY") is not None else ""  # only for development environment, otherwise it should return None
+    #     with st.popover("🔐 OpenAI API Key"):
+    #         openai_api_key = st.text_input("Introduce your OpenAI API Key (https://platform.openai.com/)",
+    #                                        value=default_openai_api_key, type="password")
+    #
+    # # --- Main Content ---
+    # # Checking if the user has introduced the OpenAI API Key, if not, a warning is displayed
+    # if openai_api_key == "" or openai_api_key is None or "sk-" not in openai_api_key:
+    #     st.write("#")
+    #     st.warning("⬅️ Please introduce your OpenAI API Key (make sure to have funds) to continue...")
+    #
+    #     with st.sidebar:
+    #         st.write("#")
+    #         st.write("#")
+    #
+    # else:
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    client = OpenAI(api_key=openai_api_key)
+
+
+    # --- Display previous analysis results ---
+    if 'audio_analysis_results' in st.session_state:
+        #st.write("## Initial Audio Analyses")
+        for result in st.session_state.audio_analysis_results:
+            st.write(f"**Song:** {result['file_name']}")
+            st.write(f"**Duration:** {result['duration']:.2f} seconds")
+            st.write(f"**Tempo:** {result['tempo']} BPM")
+            st.write(f"**Pulse Clarity (std of onset strength):** {result['pulse_clarity']}")
+            st.write(f"**Key:** {result['key']}")
+            st.write(f"**Key Strength:** {result['key_strength']}")
+            st.write(f"**Average Spectral Centroid:** {np.mean(result['spectral_centroids'])}")
+            st.write(f"**Average Spectral Bandwidth:** {np.mean(result['spectral_bandwidth'])}")
+            st.write(f"**Spectral Flux:** {np.mean(result['spectral_flux'])}")
+            st.write(f"**Average RMS Energy:** {np.mean(result['rms_energy'])}")
+            st.write(f"**Loudness:** {result['loudness']}")
+            st.audio(BytesIO(result['audio_bytes']), format="audio/mp3")
+            st.pyplot(result['fig'])
+            st.write("---")  # Separator for each file analysis
+
+    # Display chat messages from history on app rerun
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Sidebar model options and inputs
     with st.sidebar:
-        default_openai_api_key = os.getenv("OPENAI_API_KEY") if os.getenv(
-            "OPENAI_API_KEY") is not None else ""  # only for development environment, otherwise it should return None
-        with st.popover("🔐 OpenAI API Key"):
-            openai_api_key = st.text_input("Introduce your OpenAI API Key (https://platform.openai.com/)",
-                                           value=default_openai_api_key, type="password")
 
-    # --- Main Content ---
-    # Checking if the user has introduced the OpenAI API Key, if not, a warning is displayed
-    if openai_api_key == "" or openai_api_key is None or "sk-" not in openai_api_key:
-        st.write("#")
-        st.warning("⬅️ Please introduce your OpenAI API Key (make sure to have funds) to continue...")
+        st.divider()
 
-        with st.sidebar:
-            st.write("#")
-            st.write("#")
+        model = st.selectbox("Select a model:", [
+            "gpt-4o-2024-05-13",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo-16k",
+            "gpt-4",
+            "gpt-4-32k",
+        ], index=0)
 
-    else:
-        client = OpenAI(api_key=openai_api_key)
+        with st.popover("⚙️ Model parameters"):
+            model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
 
+        audio_response = st.toggle("Audio response", value=False)
+        if audio_response:
+            cols = st.columns(2)
+            with cols[0]:
+                tts_voice = st.selectbox("Select a voice:", ["alloy", "echo", "fable", "onyx", "nova", "shimmer"])
+            with cols[1]:
+                tts_model = st.selectbox("Select a model:", ["tts-1", "tts-1-hd"], index=1)
 
-        # --- Display previous analysis results ---
-        if 'audio_analysis_results' in st.session_state:
-            #st.write("## Initial Audio Analyses")
-            for result in st.session_state.audio_analysis_results:
-                st.write(f"**Song:** {result['file_name']}")
-                st.write(f"**Duration:** {result['duration']:.2f} seconds")
-                st.write(f"**Max Amplitude:** {result['max_amplitude']}")
-                st.write(f"**Min Amplitude:** {result['min_amplitude']}")
-                st.write(f"**Mean Amplitude:** {result['mean_amplitude']}")
-                st.write(f"**Tempo:** {result['tempo']} BPM")
-                st.write(f"**Pulse Clarity (std of onset strength):** {result['pulse_clarity']}")
-                st.write(f"**Key:** {result['key']}")
-                st.write(f"**Key Strength:** {result['key_strength']}")
-                st.write(f"**Average Spectral Centroid:** {np.mean(result['spectral_centroids'])}")
-                st.write(f"**Average Spectral Bandwidth:** {np.mean(result['spectral_bandwidth'])}")
-                st.write(f"**Spectral Flux:** {np.mean(result['spectral_flux'])}")
-                st.write(f"**Average RMS Energy:** {np.mean(result['rms_energy'])}")
-                st.write(f"**Loudness:** {result['loudness']}")
-                st.audio(BytesIO(result['audio_bytes']), format="audio/mp3")
-                st.pyplot(result['fig'])
-                st.write("---")  # Separator for each file analysis
+        model_params = {
+            "model": model,
+            "temperature": model_temp,
+        }
 
-        # Display chat messages from history on app rerun
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        st.button(
+            "🗑️ Reset conversation",
+            on_click=reset_conversation,
+        )
 
-        # Sidebar model options and inputs
-        with st.sidebar:
+        st.divider()
 
-            st.divider()
+        # Image Upload
+        if model in ["gpt-4o-2024-05-13", "gpt-4-turbo"]:
 
-            model = st.selectbox("Select a model:", [
-                "gpt-4o-2024-05-13",
-                "gpt-4-turbo",
-                "gpt-3.5-turbo-16k",
-                "gpt-4",
-                "gpt-4-32k",
-            ], index=0)
+            st.write("### **🖼️ Add an image:**")
 
-            with st.popover("⚙️ Model parameters"):
-                model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
+            def add_image_to_messages():
+                if st.session_state.uploaded_img or (
+                        "camera_img" in st.session_state and st.session_state.camera_img):
+                    img_type = st.session_state.uploaded_img.type if st.session_state.uploaded_img else "image/jpeg"
+                    raw_img = Image.open(st.session_state.uploaded_img or st.session_state.camera_img)
+                    img = get_image_base64(raw_img)
+                    st.session_state.messages.append(
+                        {
+                            "role": "user",
+                            "content": [{
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{img_type};base64,{img}"}
+                            }]
+                        }
+                    )
 
-            audio_response = st.toggle("Audio response", value=False)
-            if audio_response:
-                cols = st.columns(2)
-                with cols[0]:
-                    tts_voice = st.selectbox("Select a voice:", ["alloy", "echo", "fable", "onyx", "nova", "shimmer"])
-                with cols[1]:
-                    tts_model = st.selectbox("Select a model:", ["tts-1", "tts-1-hd"], index=1)
+            cols_img = st.columns(2)
 
-            model_params = {
-                "model": model,
-                "temperature": model_temp,
-            }
+            with cols_img[0]:
+                with st.popover("📁 Upload"):
+                    st.file_uploader(
+                        "Upload an image",
+                        type=["png", "jpg", "jpeg"],
+                        accept_multiple_files=False,
+                        key="uploaded_img",
+                        on_change=add_image_to_messages,
+                    )
 
-            st.button(
-                "🗑️ Reset conversation",
-                on_click=reset_conversation,
-            )
-
-            st.divider()
-
-            # Image Upload
-            if model in ["gpt-4o-2024-05-13", "gpt-4-turbo"]:
-
-                st.write("### **🖼️ Add an image:**")
-
-                def add_image_to_messages():
-                    if st.session_state.uploaded_img or (
-                            "camera_img" in st.session_state and st.session_state.camera_img):
-                        img_type = st.session_state.uploaded_img.type if st.session_state.uploaded_img else "image/jpeg"
-                        raw_img = Image.open(st.session_state.uploaded_img or st.session_state.camera_img)
-                        img = get_image_base64(raw_img)
-                        st.session_state.messages.append(
-                            {
-                                "role": "user",
-                                "content": [{
-                                    "type": "image_url",
-                                    "image_url": {"url": f"data:{img_type};base64,{img}"}
-                                }]
-                            }
-                        )
-
-                cols_img = st.columns(2)
-
-                with cols_img[0]:
-                    with st.popover("📁 Upload"):
-                        st.file_uploader(
-                            "Upload an image",
-                            type=["png", "jpg", "jpeg"],
-                            accept_multiple_files=False,
-                            key="uploaded_img",
+            with cols_img[1]:
+                with st.popover("📸 Camera"):
+                    activate_camera = st.checkbox("Activate camera")
+                    if activate_camera:
+                        st.camera_input(
+                            "Take a picture",
+                            key="camera_img",
                             on_change=add_image_to_messages,
                         )
 
-                with cols_img[1]:
-                    with st.popover("📸 Camera"):
-                        activate_camera = st.checkbox("Activate camera")
-                        if activate_camera:
-                            st.camera_input(
-                                "Take a picture",
-                                key="camera_img",
-                                on_change=add_image_to_messages,
-                            )
+        # Audio Upload
+        st.write("#")
+        st.write("### **🎤 Speak to Me:**")
 
-            # Audio Upload
-            st.write("#")
-            st.write("### **🎤 Speak to Me:**")
+        audio_prompt = None
+        if "prev_speech_hash" not in st.session_state:
+            st.session_state.prev_speech_hash = None
 
-            audio_prompt = None
-            if "prev_speech_hash" not in st.session_state:
-                st.session_state.prev_speech_hash = None
+        speech_input = audio_recorder("Press to talk:", icon_size="3x", neutral_color="#6ca395", )
+        if speech_input and st.session_state.prev_speech_hash != hash(speech_input):
+            st.session_state.prev_speech_hash = hash(speech_input)
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=("audio.wav", speech_input),
+            )
 
-            speech_input = audio_recorder("Press to talk:", icon_size="3x", neutral_color="#6ca395", )
-            if speech_input and st.session_state.prev_speech_hash != hash(speech_input):
-                st.session_state.prev_speech_hash = hash(speech_input)
-                transcript = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=("audio.wav", speech_input),
-                )
+            audio_prompt = transcript.text
 
-                audio_prompt = transcript.text
+        st.divider()
 
-            st.divider()
+    # Chat input
+    if prompt := st.chat_input("Please start by uploading your files in the following format: 'SongTitle_ArtistName.MP3'...") or audio_prompt:
+        # Flag to check if a special action is requested
+        special_action = False
 
-        # Chat input
-        if prompt := st.chat_input("Please start by uploading your files in the following format: 'SongTitle_ArtistName.MP3'...") or audio_prompt:
-            # Flag to check if a special action is requested
-            special_action = False
+        # Check if the user asked for stem separation
+        if "stems" in prompt.lower() or st.session_state.processing_stems:
+            special_action = True
+            st.session_state.processing_stems = True
 
-            # Check if the user asked for stem separation
-            if "stems" in prompt.lower() or st.session_state.processing_stems:
-                special_action = True
-                st.session_state.processing_stems = True
-
-            # Check if the user asked for audio analysis
-            if "chroma" in prompt.lower():
-                special_action = True
-                upload_dir = "uploaded_files"
-                audio_files = list_audio_files(upload_dir)
-                with st.spinner("Creating chroma plots... This may take a moment..."):
-                    for audio_file in audio_files:
-                        chroma(audio_file)
-
-            # Bypass the chatbot's response if a special action was requested
-            if not special_action:
-
-                # Displaying the new messages
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-                    append_message("user", prompt or audio_prompt)
-
-                # Send the analysis results to the assistant
-                with st.chat_message("assistant"):
-                    assistant_response = run_assistant(client, st.session_state.messages)
-                    st.write(assistant_response)
-                    append_message("assistant", assistant_response)
-                    log_conversation(st.session_state.messages)
-
-        if st.session_state.processing_stems:
+        # Check if the user asked for audio analysis
+        if "chroma" in prompt.lower():
+            special_action = True
             upload_dir = "uploaded_files"
             audio_files = list_audio_files(upload_dir)
-
-            if not audio_files:
-                st.write("No audio files available for processing.")
-            else:
-                # Display available songs for stem separation
-                file_options = {os.path.basename(file): file for file in audio_files}
-                st.session_state.chosen_file = st.selectbox("Select a song to separate stems:",
-                                                            options=list(file_options.keys()), key="file_selector")
-
-                if st.button("Separate Stems"):
-                    st.session_state.chosen_file_path = file_options[st.session_state.chosen_file]
-
-                if st.session_state.chosen_file_path:
-                    # Process the chosen file
-                    output_dir = "separated_files"
-
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-
-                    with st.spinner(f"Separating stems for {os.path.basename(st.session_state.chosen_file_path)}... This may take a few minutes..."):
-                        separate_single(st.session_state.chosen_file_path, output_dir)
-                        stem_files = find_files(
-                            os.path.join(output_dir, "htdemucs", os.path.splitext(st.session_state.chosen_file)[0]))
-                        display_audio_files(stem_files)
-                    st.session_state.processing_stems = False
-                    st.session_state.chosen_file_path = None
-                    append_message("assistant", "Here are the separated stems for the selected song.")
-
-
-
-                # --- Added Audio Response ---
-                if audio_response:
-                    response = client.audio.speech.create(
-                        model=tts_model,
-                        voice=tts_voice,
-                        input=st.session_state.messages[-1]["content"],
-                    )
-                    audio_base64 = base64.b64encode(response.content).decode('utf-8')
-                    audio_html = f"""
-                    <audio controls autoplay>
-                        <source src="data:audio/wav;base64,{audio_base64}" type="audio/mp3">
-                    </audio>
-                    """
-                    st.html(audio_html)
-
-        # --- Audio Analysis Section ---
-        if not special_action and not st.session_state.audio_analysis_done:
-            st.write("#")
-            st.write("### **🎵 Upload an audio file for analysis:**")
-            audio_files = st.file_uploader("Upload an MP3 file", type=["mp3"], accept_multiple_files=True)
-
-            if audio_files:
+            with st.spinner("Creating chroma plots... This may take a moment..."):
                 for audio_file in audio_files:
-                    upload_dir = "uploaded_files"
-                    file_path = save_uploaded_file(upload_dir, audio_file)
-                    with st.spinner("Analyzing audio..."):
-                        (sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, chroma, tempo, beats, pulse_clarity,
-                         spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength) = analyze_audio(
-                            file_path)
+                    chroma(audio_file)
 
-                        st.success(f"Analysis for {audio_file.name} complete!")
+        # Bypass the chatbot's response if a special action was requested
+        if not special_action:
 
-                        print()
+            # Displaying the new messages
+            with st.chat_message("user"):
+                st.markdown(prompt)
+                append_message("user", prompt or audio_prompt)
 
-                        fig, ax = plt.subplots(figsize=(12, 6))
-                        spectrogram = librosa.amplitude_to_db(magnitude_spectrogram)
-                        img = librosa.display.specshow(spectrogram, sr=sr, x_axis='time', y_axis='log', ax=ax)
-                        ax.set_title('Spectrogram')
-                        fig.colorbar(img, ax=ax, format="%+2.0f dB")
+            # Send the analysis results to the assistant
+            with st.chat_message("assistant"):
+                assistant_response = run_assistant(client, st.session_state.messages)
+                st.write(assistant_response)
+                append_message("assistant", assistant_response)
+                log_conversation(st.session_state.messages)
 
-                        st.pyplot(fig)
+    if st.session_state.processing_stems:
+        upload_dir = "uploaded_files"
+        audio_files = list_audio_files(upload_dir)
 
-                        with open(file_path, "rb") as audio_file_bytes:
-                            audio_bytes = audio_file_bytes.read()
-                            st.audio(BytesIO(audio_bytes), format="audio/mp3")
-                            st.session_state.audio_analysis_results.append({
-                                'file_name': audio_file.name,
-                                'duration': duration,
-                                'max_amplitude': max_amplitude,
-                                'min_amplitude': min_amplitude,
-                                'mean_amplitude': mean_amplitude,
-                                'tempo': tempo,
-                                'pulse_clarity': pulse_clarity,
-                                'key': key + ' ' + scale,
-                                'key_strength': strength,
-                                'spectral_centroids': spectral_centroids,
-                                'spectral_bandwidth': spectral_bandwidth,
-                                'spectral_flux': spectral_flux,
-                                'rms_energy': rms_energy,
-                                'loudness': loudness,
-                                'audio_bytes': audio_bytes,
-                                'fig': fig
-                            })
+        if not audio_files:
+            st.write("No audio files available for processing.")
+        else:
+            # Display available songs for stem separation
+            file_options = {os.path.basename(file): file for file in audio_files}
+            st.session_state.chosen_file = st.selectbox("Select a song to separate stems:",
+                                                        options=list(file_options.keys()), key="file_selector")
 
-                        st.write(f"**Song:** {audio_file.name}")
-                        st.write(f"**Duration:** {duration:.2f} seconds")
-                        st.write(f"**Max Amplitude:** {max_amplitude}")
-                        st.write(f"**Min Amplitude:** {min_amplitude}")
-                        st.write(f"**Mean Amplitude:** {mean_amplitude}")
-                        st.write(f"**Tempo:** {tempo} BPM")
-                        st.write(f"**Pulse Clarity (std of onset strength):** {pulse_clarity}")
-                        st.write(f"**Key:** {key} {scale}")
-                        st.write(f"**Key Strength:** {strength}")
-                        st.write(f"**Average Spectral Centroid:** {np.mean(spectral_centroids)}")
-                        st.write(f"**Average Spectral Bandwidth:** {np.mean(spectral_bandwidth)}")
-                        st.write(f"**Spectral Flux:** {np.mean(spectral_flux)}")
-                        st.write(f"**Average RMS Energy:** {np.mean(rms_energy)}")
-                        st.write(f"**Loudness:** {loudness}")
-                        st.write("---")  # Separator for each file analysis
+            if st.button("Separate Stems"):
+                st.session_state.chosen_file_path = file_options[st.session_state.chosen_file]
 
-                # Send the analysis results to the assistant
-                with st.chat_message("assistant"):
-                    formatted_results = format_analysis_results_for_prompt(st.session_state.audio_analysis_results)
-                    prompt = f"Here are the audio analysis results:\n{formatted_results}"
-                    append_message("user", prompt)
-                    assistant_response = run_assistant(client, st.session_state.messages)
-                    st.write(assistant_response)
-                    append_message("assistant", assistant_response)
-                    log_conversation(st.session_state.messages)
+            if st.session_state.chosen_file_path:
+                # Process the chosen file
+                output_dir = "separated_files"
 
-                st.session_state.audio_analysis_done = True
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+
+                with st.spinner(f"Separating stems for {os.path.basename(st.session_state.chosen_file_path)}... This may take a few minutes..."):
+                    separate_single(st.session_state.chosen_file_path, output_dir)
+                    stem_files = find_files(
+                        os.path.join(output_dir, "htdemucs", os.path.splitext(st.session_state.chosen_file)[0]))
+                    display_audio_files(stem_files)
+                st.session_state.processing_stems = False
+                st.session_state.chosen_file_path = None
+                append_message("assistant", "Here are the separated stems for the selected song.")
+
+
+
+            # --- Added Audio Response ---
+            if audio_response:
+                response = client.audio.speech.create(
+                    model=tts_model,
+                    voice=tts_voice,
+                    input=st.session_state.messages[-1]["content"],
+                )
+                audio_base64 = base64.b64encode(response.content).decode('utf-8')
+                audio_html = f"""
+                <audio controls autoplay>
+                    <source src="data:audio/wav;base64,{audio_base64}" type="audio/mp3">
+                </audio>
+                """
+                st.html(audio_html)
+
+    # --- Audio Analysis Section ---
+    if not special_action and not st.session_state.audio_analysis_done:
+        st.write("#")
+        st.write("### **🎵 Upload an audio file for analysis:**")
+        audio_files = st.file_uploader("Upload an MP3 file", type=["mp3"], accept_multiple_files=True)
+
+        if audio_files:
+            for audio_file in audio_files:
+                upload_dir = "uploaded_files"
+                file_path = save_uploaded_file(upload_dir, audio_file)
+                with st.spinner("Analyzing audio..."):
+                    (sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity,
+                     spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength) = analyze_audio(
+                        file_path)
+
+                    st.success(f"Analysis for {audio_file.name} complete!")
+
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                    spectrogram = librosa.amplitude_to_db(magnitude_spectrogram)
+                    img = librosa.display.specshow(spectrogram, sr=sr, x_axis='time', y_axis='log', ax=ax)
+                    ax.set_title('Spectrogram')
+                    fig.colorbar(img, ax=ax, format="%+2.0f dB")
+
+                    st.pyplot(fig)
+
+                    with open(file_path, "rb") as audio_file_bytes:
+                        audio_bytes = audio_file_bytes.read()
+                        st.audio(BytesIO(audio_bytes), format="audio/mp3")
+                        st.session_state.audio_analysis_results.append({
+                            'file_name': audio_file.name,
+                            'duration': duration,
+                            'max_amplitude': max_amplitude,
+                            'min_amplitude': min_amplitude,
+                            'mean_amplitude': mean_amplitude,
+                            'tempo': tempo,
+                            'pulse_clarity': pulse_clarity,
+                            'key': key + ' ' + scale,
+                            'key_strength': strength,
+                            'spectral_centroids': spectral_centroids,
+                            'spectral_bandwidth': spectral_bandwidth,
+                            'spectral_flux': spectral_flux,
+                            'rms_energy': rms_energy,
+                            'loudness': loudness,
+                            'audio_bytes': audio_bytes,
+                            'fig': fig
+                        })
+
+                    st.write(f"**Song:** {audio_file.name}")
+                    st.write(f"**Duration:** {duration:.2f} seconds")
+                    st.write(f"**Tempo:** {tempo} BPM")
+                    st.write(f"**Pulse Clarity (std of onset strength):** {pulse_clarity}")
+                    st.write(f"**Key:** {key} {scale}")
+                    st.write(f"**Key Strength:** {strength}")
+                    st.write(f"**Average Spectral Centroid:** {np.mean(spectral_centroids)}")
+                    st.write(f"**Average Spectral Bandwidth:** {np.mean(spectral_bandwidth)}")
+                    st.write(f"**Spectral Flux:** {np.mean(spectral_flux)}")
+                    st.write(f"**Average RMS Energy:** {np.mean(rms_energy)}")
+                    st.write(f"**Loudness:** {loudness}")
+                    st.write("---")  # Separator for each file analysis
+
+            # Send the analysis results to the assistant
+            with st.chat_message("assistant"):
+                formatted_results = format_analysis_results_for_prompt(st.session_state.audio_analysis_results)
+                prompt = f"Here are the audio analysis results:\n{formatted_results}"
+                append_message("user", prompt)
+                assistant_response = run_assistant(client, st.session_state.messages)
+                st.write(assistant_response)
+                append_message("assistant", assistant_response)
+                log_conversation(st.session_state.messages)
+
+            #st.write("Looking for inspiration?")
+
+
+            # # Add buttons for further queries and handle their responses
+            # query_buttons = {
+            #     "What do you think these song choices say about me as a person?": None,
+            #     "Based on these songs, what are some other songs you would recommend I listen to?": None,
+            #     "Can you give me the stems (separate MP3s for vocals, bass, drums, and other) of one of the songs?": None,
+            #     "Which movies do you think I might like based on my music choices?": None
+            # }
+            #
+            # for question, response in query_buttons.items():
+            #     if st.button(question):
+            #         # Displaying the new messages
+            #         st.session_state.questions = True
+            #         with st.chat_message("user"):
+            #             st.markdown(question)
+            #             append_message("user", question)
+            #
+            #         # Send the analysis results to the assistant
+            #         with st.chat_message("assistant"):
+            #             assistant_response = run_assistant(client, st.session_state.messages)
+            #             st.write(assistant_response)
+            #             append_message("assistant", assistant_response)
+            #             log_conversation(st.session_state.messages)
+
+            # # Place to add interaction buttons and handle their responses
+            # questions = [
+            #     "What do you think these song choices say about me as a person?",
+            #     "Based on these songs, what are some other songs you would recommend I listen to?",
+            #     "Can you give me the stems (separate MP3s for vocals, bass, drums, and other) of one of the songs?",
+            #     "Which movies do you think I might like based on my music choices?"
+            # ]
+            #
+            # for question in questions:
+            #     if st.button(question):
+            #         if question not in st.session_state.questions_asked:
+            #             st.session_state.questions_asked[question] = True
+            #             append_message('user', question)
+            #             response = run_assistant(client, st.session_state.messages)
+            #             append_message('assistant', response)
+            #             st.write(response)
+
+
+            st.session_state.audio_analysis_done = True
+
+
 
 if __name__ == "__main__":
     main()
