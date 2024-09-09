@@ -240,6 +240,17 @@ def display_audio_files(files):
                 mime="audio/mp3"
             )
 
+        y, sr = librosa.load(file)
+        stft = librosa.stft(y)
+        mag_spectrogram = np.abs(stft)
+        fig, ax = plt.subplots(figsize=(12, 6))
+        spectrogram = librosa.amplitude_to_db(mag_spectrogram)
+        img = librosa.display.specshow(spectrogram, sr=sr, x_axis='time', y_axis='log', ax=ax)
+        ax.set_title('Spectrogram')
+        fig.colorbar(img, ax=ax, format="%+2.0f dB")
+
+        st.pyplot(fig)
+
 def clear_upload_dir(upload_dir):
     if os.path.exists(upload_dir):
         shutil.rmtree(upload_dir)
@@ -286,6 +297,9 @@ def main():
 
     if 'chosen_file_path' not in st.session_state:
         st.session_state.chosen_file_path = None
+
+    if 'questions_asked' not in st.session_state:
+        st.session_state['questions_asked'] = {}
 
     # Initialize special_action
     special_action = False
@@ -554,8 +568,6 @@ def main():
 
                         st.success(f"Analysis for {audio_file.name} complete!")
 
-                        print()
-
                         fig, ax = plt.subplots(figsize=(12, 6))
                         spectrogram = librosa.amplitude_to_db(magnitude_spectrogram)
                         img = librosa.display.specshow(spectrogram, sr=sr, x_axis='time', y_axis='log', ax=ax)
@@ -609,7 +621,53 @@ def main():
                     append_message("assistant", assistant_response)
                     log_conversation(st.session_state.messages)
 
+                #st.write("Looking for inspiration?")
+
+
+                # # Add buttons for further queries and handle their responses
+                # query_buttons = {
+                #     "What do you think these song choices say about me as a person?": None,
+                #     "Based on these songs, what are some other songs you would recommend I listen to?": None,
+                #     "Can you give me the stems (separate MP3s for vocals, bass, drums, and other) of one of the songs?": None,
+                #     "Which movies do you think I might like based on my music choices?": None
+                # }
+                #
+                # for question, response in query_buttons.items():
+                #     if st.button(question):
+                #         # Displaying the new messages
+                #         st.session_state.questions = True
+                #         with st.chat_message("user"):
+                #             st.markdown(question)
+                #             append_message("user", question)
+                #
+                #         # Send the analysis results to the assistant
+                #         with st.chat_message("assistant"):
+                #             assistant_response = run_assistant(client, st.session_state.messages)
+                #             st.write(assistant_response)
+                #             append_message("assistant", assistant_response)
+                #             log_conversation(st.session_state.messages)
+
+                # # Place to add interaction buttons and handle their responses
+                # questions = [
+                #     "What do you think these song choices say about me as a person?",
+                #     "Based on these songs, what are some other songs you would recommend I listen to?",
+                #     "Can you give me the stems (separate MP3s for vocals, bass, drums, and other) of one of the songs?",
+                #     "Which movies do you think I might like based on my music choices?"
+                # ]
+                #
+                # for question in questions:
+                #     if st.button(question):
+                #         if question not in st.session_state.questions_asked:
+                #             st.session_state.questions_asked[question] = True
+                #             append_message('user', question)
+                #             response = run_assistant(client, st.session_state.messages)
+                #             append_message('assistant', response)
+                #             st.write(response)
+
+
                 st.session_state.audio_analysis_done = True
+
+
 
 if __name__ == "__main__":
     main()
