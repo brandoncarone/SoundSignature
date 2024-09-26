@@ -38,7 +38,7 @@ mp3_rate = 320
 float32 = False
 int24 = False
 upload_dir = "uploaded_files"
-output_dir = "separated_files"
+output_dir = os.path.abspath("separated_files")
 extensions = ['mp3', 'wav', 'flac', 'ogg']
 
 
@@ -581,7 +581,7 @@ def main():
 
             if st.session_state.chosen_file_path:
                 # Process the chosen file
-                output_dir = "separated_files"
+                output_dir = os.path.abspath("separated_files")
 
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
