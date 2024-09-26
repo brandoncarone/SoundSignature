@@ -204,7 +204,7 @@ def copy_process_streams(process: sp.Popen):
             std.flush()
 
 def separate_single(input_file, outp):
-    cmd = ["python3", "-m", "demucs.separate", "-o", outp, "-n", model]
+    cmd = [sys.executable, "-m", "demucs.separate", "-o", outp, "-n", model]
     if mp3:
         cmd += ["--mp3", f"--mp3-bitrate={mp3_rate}"]
     if float32:
@@ -469,6 +469,66 @@ def main():
             audio_prompt = transcript.text
 
         st.divider()
+
+        with st.expander("Feature Analysis Overview", expanded=True):
+            st.markdown("""
+            In the analysis of music through audio features, categorization is crucial for both clarity and depth of understanding. The features are grouped into four distinct categories—Tempo and Rhythmicity, Harmony and Melody, Timbre and Texture, and Energy and Dynamics—each representing fundamental aspects of musical expression and perception.
+
+            - **Tempo and Rhythmicity** address the temporal aspects of music, focusing on how the speed and rhythm contribute to the structure and feel of a piece.
+            - **Harmony and Melody** encompass the tonal and harmonic elements, providing insights into the musical scales, keys, and their stability.
+            - **Timbre and Texture** relate to the quality and color of the sound.
+            - **Energy and Dynamics** involve the power and intensity of the music.
+
+            By breaking down audio features into these categories, we can more effectively analyze and understand the complex interplay of elements that make music a rich and emotive experience.
+            """)
+
+        with st.expander("Tempo and Rhythmicity", expanded=False):
+            st.markdown("""
+            **Tempo**
+            *Definition*: The speed or pace of the music, measured in beats per minute (BPM).
+            *Importance*: Essential for determining the energy level and mood conveyed by a piece of music.
+
+            **Pulse Clarity**
+            *Definition*: The clarity of the rhythmic pulse or beat, indicating how distinctly the beat is perceived.
+            *Importance*: Important for understanding the rhythm's role in the musical experience and its impact on listener engagement.
+            """)
+
+        with st.expander("Harmony and Melody", expanded=False):
+            st.markdown("""
+            **Key**
+            *Definition*: The tonal center or home base of a piece of music, identified by key and mode (e.g., C major or A minor).
+            *Importance*: Offers insights into the harmonic framework of the music, influencing the emotional and psychological response of the listener.
+
+            **Key Strength**
+            *Definition*: The clarity and stability of the detected musical key throughout the piece.
+            *Importance*: Indicates the strength of the harmonic structure, which can enhance the emotional impact of the music.
+            """)
+
+        with st.expander("Timbre and Texture", expanded=False):
+            st.markdown("""
+            **Spectral Centroid**
+            *Definition*: Represents the 'center of mass' of the sound spectrum, indicating the sound's perceived brightness.
+            *Importance*: Helps in characterizing the tonal quality or color of music which affects the texture perceived by listeners.
+
+            **Spectral Bandwidth**
+            *Definition*: Measures the width of significant frequency bands within the sound spectrum, reflecting the sound's fullness.
+            *Importance*: Used to assess the richness and texture of the sound, influencing how layered and lush the music feels.
+
+            **Spectral Flux**
+            *Definition*: The rate of change in the power spectrum, indicative of musical onsets or texture changes.
+            *Importance*: Provides insights into the dynamic changes within the music, highlighting transitions and variations in musical phrases.
+            """)
+
+        with st.expander("Energy and Dynamics", expanded=False):
+            st.markdown("""
+            **RMS Energy**
+            *Definition*: The average power of the audio signal, calculated as the root mean square of the amplitude, independent of human perception.
+            *Importance*: Reflects the overall energy of the sound, correlating with how dynamic and powerful the music is experienced.
+
+            **Loudness**
+            *Definition*: A psychoacoustic measure that incorporates frequency weighting to mimic the human ear's sensitivity to different frequencies, reflecting the perceived intensity.
+            *Importance*: Influences the listener's perception of the music's impact and energy, affecting the emotional response to the music.
+            """)
 
     # Chat input
     if prompt := st.chat_input("Please start by uploading your files in the following format: 'SongTitle_ArtistName.MP3'...") or audio_prompt:
