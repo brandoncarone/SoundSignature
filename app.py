@@ -662,6 +662,12 @@ def main():
         st.write("#")
         st.write("### **🎵 Upload an audio file for analysis:**")
         audio_files = st.file_uploader("Upload an MP3 file", type=["mp3"], accept_multiple_files=True)
+        # Add a sleek, muted note under the file uploader
+        st.markdown("""
+        <div style="text-align: center; color: #B0B0B0; font-size: small;">
+            Please refer to the expandable descriptors in the sidebar for more information on how we carry out the analyses!
+        </div>
+        """, unsafe_allow_html=True)
 
         if audio_files:
             for audio_file in audio_files:
