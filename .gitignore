@@ -5,4 +5,7 @@ separated_files/
 songs_separated/
 uploaded_files/
 conversation_log.csv
+audio_analysis_results.csv
+audio_analysis_results.xlsx
+Nights_FrankOcean.mp3
 __pycache__

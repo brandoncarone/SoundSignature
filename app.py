@@ -470,7 +470,33 @@ def main():
 
         st.divider()
 
-        with st.expander("Feature Analysis Overview", expanded=True):
+        with st.expander("How do we analyze audio?", expanded=False):
+            st.markdown("""
+            ### Understanding Audio Analysis: Short-Time Fourier Transform (STFT)
+
+            When we analyze music, we need to break down the sound into its basic components: time and frequency. One of the fundamental tools we use for this is called the **Short-Time Fourier Transform (STFT)**.
+
+            In simple terms, the STFT is a mathematical method that allows us to "look" at the frequency content of a sound over short periods of time. Rather than treating an entire song as one block of sound, the STFT breaks the audio into tiny segments, assesses which frequencies are present and how loud they are, and then puts them together to form a **spectrogram**.
+
+            #### What does this do for us?
+
+            The spectrogram gives us a **visual representation** of sound, showing how the frequencies (pitch) in the music change over time. Here's an example using a track from Frank Ocean's *Nights*:
+
+            """)
+
+            st.image("nights.png", caption="Spectrogram of 'Nights' by Frank Ocean", use_column_width=True)
+
+            st.markdown("""
+            - On the vertical axis, you see **frequency** (Hz), which corresponds to the pitch or tone of the sound. Higher up on the graph are higher-pitched sounds.
+            - On the horizontal axis, you see **time**, which represents the progression of the song.
+            - The **color** represents the **intensity** or loudness of the sound at each frequency and time. Bright spots (in red) are louder, while darker spots (in blue) are quieter.
+
+            Using this method, we can isolate specific elements of the music, like beats, melodies, or harmonic textures. For example, we can look at which parts of the song have more high-frequency content (like cymbals or high-pitched vocals) or lower-frequency elements (like bass or kick drums).
+
+            The STFT is just one of the many powerful tools we use to transform raw audio into useful data, which can then be further analyzed to understand the music's structure, emotion, and even genre!
+            """)
+
+        with st.expander("Feature Analysis Overview", expanded=False):
             st.markdown("""
             In our analysis of music through audio features, the features are grouped into four distinct categories—Tempo and Rhythmicity, Harmony and Melody, Timbre and Texture, and Energy and Dynamics—each representing fundamental aspects of musical expression and perception.
 
@@ -480,6 +506,7 @@ def main():
             - **Energy and Dynamics** involve the power and intensity of the music.
 
             By breaking down audio features into these categories, we can more effectively analyze and understand the complex interplay of elements that make music a rich and emotive experience.
+
             """)
 
         with st.expander("Tempo and Rhythmicity", expanded=False):
