@@ -20,6 +20,8 @@ import io
 from pathlib import Path
 import tempfile
 import madmom
+from madmom.features.tempo import TempoEstimationProcessor
+from madmom.features.beats import RNNBeatProcessor
 import shutil
 import time
 import pandas as pd
@@ -93,6 +95,42 @@ def list_audio_files(upload_dir):
     return [str(file) for file in Path(upload_dir).glob("*.mp3")]
 
 # Function to perform basic audio analysis including waveform and spectrogram
+# def analyze_audio(file):
+#     # Ensure the file exists
+#     if not os.path.exists(file):
+#         st.error(f"File not found: {file}")
+#         return None, None, None, None
+#
+#     # Load the audio file using librosa
+#     y, sr = librosa.load(file)
+#     duration = len(y) / sr
+#     max_amplitude = np.max(y)
+#     min_amplitude = np.min(y)
+#     mean_amplitude = np.mean(y)
+#
+#     stft = librosa.stft(y)
+#     magnitude_spectrogram = np.abs(stft)
+#
+#     tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
+#     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+#     pulse_clarity = np.std(onset_env)
+#     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)
+#     spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
+#     spectral_flux = np.sqrt(np.sum(np.diff(magnitude_spectrogram, axis=1)**2, axis=0))
+#     rms_energy = librosa.feature.rms(y=y)
+#
+#     # Load audio using Essentia's MonoLoader
+#     loader = es.MonoLoader(filename=file)
+#     audio = loader()
+#
+#     loudness_extractor = es.Loudness()
+#     loudness = loudness_extractor(audio)
+#
+#     key_extractor = es.KeyExtractor()
+#     key, scale, strength = key_extractor(audio)
+#
+#     return sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
+
 def analyze_audio(file):
     # Ensure the file exists
     if not os.path.exists(file):
@@ -102,28 +140,31 @@ def analyze_audio(file):
     # Load the audio file using librosa
     y, sr = librosa.load(file)
     duration = len(y) / sr
-    max_amplitude = np.max(y)
-    min_amplitude = np.min(y)
-    mean_amplitude = np.mean(y)
-
     stft = librosa.stft(y)
     magnitude_spectrogram = np.abs(stft)
 
-    tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
+    # Replace librosa's tempo extraction with madmom
+    # Use madmom to estimate tempo
+    beat_processor = RNNBeatProcessor()(file)
+    tempo_processor = TempoEstimationProcessor(fps=100, min_bpm=65, max_bpm=200)  # Adjust fps if needed
+    madmom_tempo = tempo_processor(beat_processor)
+
+    # Extract the estimated BPM from madmom output
+    if len(madmom_tempo) > 0:
+        madmom_bpm = madmom_tempo[0][0]  # First element is the tempo in BPM
+    else:
+        madmom_bpm = None
+
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
     pulse_clarity = np.std(onset_env)
     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)
     spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
-    spectral_flux = np.sqrt(np.sum(np.diff(magnitude_spectrogram, axis=1)**2, axis=0))
+    spectral_flux = np.sqrt(np.sum(np.diff(magnitude_spectrogram, axis=1) ** 2, axis=0))
     rms_energy = librosa.feature.rms(y=y)
 
     # Load audio using Essentia's MonoLoader
     loader = es.MonoLoader(filename=file)
     audio = loader()
-
-    # Basic audio features
-    rhythm_extractor = es.RhythmExtractor2013()
-    bpm, beats, beats_confidence, _, _ = rhythm_extractor(audio)
 
     loudness_extractor = es.Loudness()
     loudness = loudness_extractor(audio)
@@ -131,8 +172,7 @@ def analyze_audio(file):
     key_extractor = es.KeyExtractor()
     key, scale, strength = key_extractor(audio)
 
-    return sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
-
+    return sr, duration, magnitude_spectrogram, madmom_bpm, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
 def format_analysis_results_for_prompt(results):
     formatted_results = []
     for result in results:
@@ -674,7 +714,7 @@ def main():
                 upload_dir = "uploaded_files"
                 file_path = save_uploaded_file(upload_dir, audio_file)
                 with st.spinner("Analyzing audio..."):
-                    (sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity,
+                    (sr, duration, magnitude_spectrogram, tempo, pulse_clarity,
                      spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength) = analyze_audio(
                         file_path)
 
@@ -694,9 +734,6 @@ def main():
                         st.session_state.audio_analysis_results.append({
                             'file_name': audio_file.name,
                             'duration': duration,
-                            'max_amplitude': max_amplitude,
-                            'min_amplitude': min_amplitude,
-                            'mean_amplitude': mean_amplitude,
                             'tempo': tempo,
                             'pulse_clarity': pulse_clarity,
                             'key': key + ' ' + scale,
