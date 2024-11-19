@@ -700,7 +700,7 @@ def main():
     # --- Audio Analysis Section ---
     if not special_action and not st.session_state.audio_analysis_done:
         st.write("#")
-        st.write("### **🎵 Upload an audio file for analysis:**")
+        st.write("### **🎵 Upload 5-10 of your favorite songs to view your report!**")
         audio_files = st.file_uploader("Upload an MP3 file", type=["mp3"], accept_multiple_files=True)
         # Add a sleek, muted note under the file uploader
         st.markdown("""
