@@ -32,7 +32,7 @@ from datetime import datetime
 dotenv.load_dotenv()
 
 # Define constants
-model = "htdemucs"
+model = "htdemucs_6s"
 two_stems = None   # only separate one stems from the rest, e.g., "vocals"
 mp3 = True
 
@@ -417,12 +417,12 @@ def main():
         st.divider()
 
         model = st.selectbox("Select a model:", [
-            "gpt-4o-2024-05-13",
-            "gpt-4-turbo",
-            "gpt-3.5-turbo-16k",
-            "gpt-4",
-            "gpt-4-32k",
-        ], index=0)
+            "gpt-4o",
+            "gpt-4.1",
+            "o3-mini",
+            "gpt-4.5-preview",
+            "o1"
+        ], index=1)
 
         with st.popover("⚙️ Model parameters"):
             model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
@@ -674,7 +674,7 @@ def main():
                 with st.spinner(f"Separating stems for {os.path.basename(st.session_state.chosen_file_path)}... This may take a few minutes..."):
                     separate_single(st.session_state.chosen_file_path, output_dir)
                     stem_files = find_files(
-                        os.path.join(output_dir, "htdemucs", os.path.splitext(st.session_state.chosen_file)[0]))
+                        os.path.join(output_dir, "htdemucs_6s", os.path.splitext(st.session_state.chosen_file)[0]))
                     display_audio_files(stem_files)
                 st.session_state.processing_stems = False
                 st.session_state.chosen_file_path = None
