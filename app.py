@@ -686,7 +686,6 @@ def main():
         # Check if the user asked for audio analysis
         if "chroma" in prompt.lower():
             special_action = True
-            upload_dir = "uploaded_files"
             audio_files = list_audio_files(upload_dir)
             with st.spinner("Creating chroma plots... This may take a moment..."):
                 for audio_file in audio_files:
@@ -708,7 +707,6 @@ def main():
                 log_conversation(st.session_state.messages)
 
     if st.session_state.processing_stems:
-        upload_dir = "uploaded_files"
         audio_files = list_audio_files(upload_dir)
 
         if not audio_files:
