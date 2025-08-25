@@ -32,7 +32,7 @@ from datetime import datetime
 dotenv.load_dotenv()
 
 # Define constants
-model = "htdemucs_6s"
+demucs_model = "htdemucs_6s"
 two_stems = None   # only separate one stems from the rest, e.g., "vocals"
 mp3 = True
 
@@ -139,43 +139,7 @@ def save_uploaded_file(upload_dir, uploaded_file):
 def list_audio_files(upload_dir):
     return [str(file) for file in Path(upload_dir).glob("*.mp3")]
 
-# Function to perform basic audio analysis including waveform and spectrogram
-# def analyze_audio(file):
-#     # Ensure the file exists
-#     if not os.path.exists(file):
-#         st.error(f"File not found: {file}")
-#         return None, None, None, None
-#
-#     # Load the audio file using librosa
-#     y, sr = librosa.load(file)
-#     duration = len(y) / sr
-#     max_amplitude = np.max(y)
-#     min_amplitude = np.min(y)
-#     mean_amplitude = np.mean(y)
-#
-#     stft = librosa.stft(y)
-#     magnitude_spectrogram = np.abs(stft)
-#
-#     tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
-#     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-#     pulse_clarity = np.std(onset_env)
-#     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)
-#     spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
-#     spectral_flux = np.sqrt(np.sum(np.diff(magnitude_spectrogram, axis=1)**2, axis=0))
-#     rms_energy = librosa.feature.rms(y=y)
-#
-#     # Load audio using Essentia's MonoLoader
-#     loader = es.MonoLoader(filename=file)
-#     audio = loader()
-#
-#     loudness_extractor = es.Loudness()
-#     loudness = loudness_extractor(audio)
-#
-#     key_extractor = es.KeyExtractor()
-#     key, scale, strength = key_extractor(audio)
-#
-#     return sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
-
+#Function to perform basic audio analysis including waveform and spectrogram
 def analyze_audio(file):
     # Ensure the file exists
     if not os.path.exists(file):
@@ -185,26 +149,19 @@ def analyze_audio(file):
     # Load the audio file using librosa
     y, sr = librosa.load(file)
     duration = len(y) / sr
+    max_amplitude = np.max(y)
+    min_amplitude = np.min(y)
+    mean_amplitude = np.mean(y)
+
     stft = librosa.stft(y)
     magnitude_spectrogram = np.abs(stft)
 
-    # Replace librosa's tempo extraction with madmom
-    # Use madmom to estimate tempo
-    beat_processor = RNNBeatProcessor()(file)
-    tempo_processor = TempoEstimationProcessor(fps=100, min_bpm=65, max_bpm=200)  # Adjust fps if needed
-    madmom_tempo = tempo_processor(beat_processor)
-
-    # Extract the estimated BPM from madmom output
-    if len(madmom_tempo) > 0:
-        madmom_bpm = madmom_tempo[0][0]  # First element is the tempo in BPM
-    else:
-        madmom_bpm = None
-
+    tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
     pulse_clarity = np.std(onset_env)
     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)
     spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
-    spectral_flux = np.sqrt(np.sum(np.diff(magnitude_spectrogram, axis=1) ** 2, axis=0))
+    spectral_flux = np.sqrt(np.sum(np.diff(magnitude_spectrogram, axis=1)**2, axis=0))
     rms_energy = librosa.feature.rms(y=y)
 
     # Load audio using Essentia's MonoLoader
@@ -217,7 +174,50 @@ def analyze_audio(file):
     key_extractor = es.KeyExtractor()
     key, scale, strength = key_extractor(audio)
 
-    return sr, duration, magnitude_spectrogram, madmom_bpm, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
+    return sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
+
+# def analyze_audio(file):
+#     # Ensure the file exists
+#     if not os.path.exists(file):
+#         st.error(f"File not found: {file}")
+#         return None, None, None, None
+#
+#     # Load the audio file using librosa
+#     y, sr = librosa.load(file)
+#     duration = len(y) / sr
+#     stft = librosa.stft(y)
+#     magnitude_spectrogram = np.abs(stft)
+#
+#     # Replace librosa's tempo extraction with madmom
+#     # Use madmom to estimate tempo
+#     beat_processor = RNNBeatProcessor()(file)
+#     tempo_processor = TempoEstimationProcessor(fps=100, min_bpm=65, max_bpm=200)  # Adjust fps if needed
+#     madmom_tempo = tempo_processor(beat_processor)
+#
+#     # Extract the estimated BPM from madmom output
+#     if len(madmom_tempo) > 0:
+#         madmom_bpm = madmom_tempo[0][0]  # First element is the tempo in BPM
+#     else:
+#         madmom_bpm = None
+#
+#     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+#     pulse_clarity = np.std(onset_env)
+#     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)
+#     spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
+#     spectral_flux = np.sqrt(np.sum(np.diff(magnitude_spectrogram, axis=1) ** 2, axis=0))
+#     rms_energy = librosa.feature.rms(y=y)
+#
+#     # Load audio using Essentia's MonoLoader
+#     loader = es.MonoLoader(filename=file)
+#     audio = loader()
+#
+#     loudness_extractor = es.Loudness()
+#     loudness = loudness_extractor(audio)
+#
+#     key_extractor = es.KeyExtractor()
+#     key, scale, strength = key_extractor(audio)
+#
+#     return sr, duration, magnitude_spectrogram, madmom_bpm, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
 def format_analysis_results_for_prompt(results):
     formatted_results = []
     for result in results:
@@ -228,10 +228,10 @@ def format_analysis_results_for_prompt(results):
         Pulse Clarity (std of onset strength): {result['pulse_clarity']}
         Key: {result['key']}
         Key Strength: {result['key_strength']}
-        Average Spectral Centroid: {np.mean(result['spectral_centroids'])}
-        Average Spectral Bandwidth: {np.mean(result['spectral_bandwidth'])}
-        Spectral Flux: {np.mean(result['spectral_flux'])}
-        Average RMS Energy: {np.mean(result['rms_energy'])}
+        Average Spectral Centroid: {result['spectral_centroids']}
+        Average Spectral Bandwidth: {result['spectral_bandwidth']}
+        Spectral Flux: {result['spectral_flux']}
+        Average RMS Energy: {result['rms_energy']}
         Loudness: {result['loudness']}
         """
         formatted_results.append(formatted_result)
@@ -289,7 +289,7 @@ def copy_process_streams(process: sp.Popen):
             std.flush()
 
 def separate_single(input_file, outp):
-    cmd = [sys.executable, "-m", "demucs.separate", "-o", outp, "-n", model]
+    cmd = [sys.executable, "-m", "demucs.separate", "-o", outp, "-n", demucs_model]
     if mp3:
         cmd += ["--mp3", f"--mp3-bitrate={mp3_rate}"]
     if float32:
@@ -442,13 +442,26 @@ def main():
             st.write(f"**Pulse Clarity (std of onset strength):** {result['pulse_clarity']}")
             st.write(f"**Key:** {result['key']}")
             st.write(f"**Key Strength:** {result['key_strength']}")
-            st.write(f"**Average Spectral Centroid:** {np.mean(result['spectral_centroids'])}")
-            st.write(f"**Average Spectral Bandwidth:** {np.mean(result['spectral_bandwidth'])}")
-            st.write(f"**Spectral Flux:** {np.mean(result['spectral_flux'])}")
-            st.write(f"**Average RMS Energy:** {np.mean(result['rms_energy'])}")
+            st.write(f"**Average Spectral Centroid:** {result['spectral_centroids']}")
+            st.write(f"**Average Spectral Bandwidth:** {result['spectral_bandwidth']}")
+            st.write(f"**Spectral Flux:** {result['spectral_flux']}")
+            st.write(f"**Average RMS Energy:** {result['rms_energy']}")
             st.write(f"**Loudness:** {result['loudness']}")
-            st.audio(BytesIO(result['audio_bytes']), format="audio/mp3")
-            st.pyplot(result['fig'])
+
+            # Recreate audio widget from path (no big bytes in session)
+            with open(result['path'], "rb") as fh:
+                st.audio(BytesIO(fh.read()), format="audio/mp3")
+
+            # Optionally replot spectrogram quickly (can also wrap in an expander)
+            y, sr = librosa.load(result['path'])
+            S = np.abs(librosa.stft(y))
+            fig, ax = plt.subplots(figsize=(12, 6))
+            img = librosa.display.specshow(librosa.amplitude_to_db(S), sr=sr, x_axis='time', y_axis='log', ax=ax)
+            ax.set_title('Spectrogram')
+            fig.colorbar(img, ax=ax, format="%+2.0f dB")
+            st.pyplot(fig, use_container_width=True)
+            plt.close(fig)
+
             st.write("---")  # Separator for each file analysis
 
     # Display chat messages from history on app rerun
@@ -566,7 +579,7 @@ def main():
 
             """)
 
-            st.image("nights.png", caption="Spectrogram of 'Nights' by Frank Ocean", use_column_width=True)
+            st.image("nights.png", caption="Spectrogram of 'Nights' by Frank Ocean", use_container_width=True)
 
             st.markdown("""
             - On the vertical axis, you see **frequency** (Hz), which corresponds to the pitch or tone of the sound. Higher up on the graph are higher-pitched sounds.
@@ -746,66 +759,82 @@ def main():
     if not special_action and not st.session_state.audio_analysis_done:
         st.write("#")
         st.write("### **🎵 Upload 5-10 of your favorite songs to view your report!**")
-        audio_files = st.file_uploader("Upload an MP3 file", type=["mp3"], accept_multiple_files=True)
-        # Add a sleek, muted note under the file uploader
+
+        with st.form("upload_form", clear_on_submit=False):
+            uploads = st.file_uploader(
+                "Upload MP3s", type=["mp3"], accept_multiple_files=True, key="uploader"
+            )
+            submitted = st.form_submit_button("Analyze")
+
+        # Sleek note under the uploader
         st.markdown("""
         <div style="text-align: center; color: #B0B0B0; font-size: small;">
             Please refer to the expandable descriptors in the sidebar for more information on how we carry out the analyses!
         </div>
         """, unsafe_allow_html=True)
 
-        if audio_files:
-            for audio_file in audio_files:
-                upload_dir = "uploaded_files"
-                file_path = save_uploaded_file(upload_dir, audio_file)
-                with st.spinner("Analyzing audio..."):
-                    (sr, duration, magnitude_spectrogram, tempo, pulse_clarity,
-                     spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength) = analyze_audio(
-                        file_path)
+        if submitted and uploads:
+            # Track analyzed filenames to avoid repetition on reruns
+            if "analyzed_files" not in st.session_state:
+                st.session_state.analyzed_files = set()
 
-                    st.success(f"Analysis for {audio_file.name} complete!")
+            for up in uploads:
+                if up.name in st.session_state.analyzed_files:
+                    continue  # skip duplicates across reruns
+
+                file_path = save_uploaded_file(upload_dir, up)
+
+                with st.spinner(f"Analyzing {up.name}..."):
+                    # If you ever want to do partial analysis, pass duration=90.0 to librosa.load
+                    # Right now we analyze the FULL song:
+                    (sr, duration, magnitude_spectrogram, tempo, pulse_clarity,
+                     spectral_centroids, spectral_bandwidth, spectral_flux,
+                     rms_energy, loudness, key, scale, strength) = analyze_audio(file_path)
+
+                    st.success(f"Analysis for {up.name} complete!")
 
                     fig, ax = plt.subplots(figsize=(12, 6))
                     spectrogram = librosa.amplitude_to_db(magnitude_spectrogram)
                     img = librosa.display.specshow(spectrogram, sr=sr, x_axis='time', y_axis='log', ax=ax)
                     ax.set_title('Spectrogram')
                     fig.colorbar(img, ax=ax, format="%+2.0f dB")
+                    st.pyplot(fig, use_container_width=True)  # <- fixes deprecation note
 
-                    st.pyplot(fig)
+                    with open(file_path, "rb") as fh:
+                        audio_bytes = fh.read()
+                    st.audio(BytesIO(audio_bytes), format="audio/mp3")
 
-                    with open(file_path, "rb") as audio_file_bytes:
-                        audio_bytes = audio_file_bytes.read()
-                        st.audio(BytesIO(audio_bytes), format="audio/mp3")
-                        st.session_state.audio_analysis_results.append({
-                            'file_name': audio_file.name,
-                            'duration': duration,
-                            'tempo': tempo,
-                            'pulse_clarity': pulse_clarity,
-                            'key': key + ' ' + scale,
-                            'key_strength': strength,
-                            'spectral_centroids': spectral_centroids,
-                            'spectral_bandwidth': spectral_bandwidth,
-                            'spectral_flux': spectral_flux,
-                            'rms_energy': rms_energy,
-                            'loudness': loudness,
-                            'audio_bytes': audio_bytes,
-                            'fig': fig
-                        })
+                    st.session_state.audio_analysis_results.append({
+                        'file_name': up.name,
+                        'path': file_path,
+                        'duration': duration,
+                        'tempo': int(tempo),
+                        'pulse_clarity': pulse_clarity,
+                        'key': key + ' ' + scale,
+                        'key_strength': strength,
+                        'spectral_centroids': float(np.mean(spectral_centroids)),
+                        'spectral_bandwidth': float(np.mean(spectral_bandwidth)),
+                        'spectral_flux': float(np.mean(spectral_flux)),
+                        'rms_energy': float(np.mean(rms_energy)),
+                        'loudness': loudness,
+                    })
+                    st.session_state.analyzed_files.add(up.name)
+                    plt.close(fig)  # free memory
 
-                    st.write(f"**Song:** {audio_file.name}")
+                    st.write(f"**Song:** {up.name}")
                     st.write(f"**Duration:** {duration:.2f} seconds")
                     st.write(f"**Tempo:** {tempo} BPM")
                     st.write(f"**Pulse Clarity (std of onset strength):** {pulse_clarity}")
                     st.write(f"**Key:** {key} {scale}")
                     st.write(f"**Key Strength:** {strength}")
-                    st.write(f"**Average Spectral Centroid:** {np.mean(spectral_centroids)}")
-                    st.write(f"**Average Spectral Bandwidth:** {np.mean(spectral_bandwidth)}")
-                    st.write(f"**Spectral Flux:** {np.mean(spectral_flux)}")
-                    st.write(f"**Average RMS Energy:** {np.mean(rms_energy)}")
+                    st.write(f"**Average Spectral Centroid:** {spectral_centroids}")
+                    st.write(f"**Average Spectral Bandwidth:** {spectral_bandwidth}")
+                    st.write(f"**Spectral Flux:** {spectral_flux}")
+                    st.write(f"**Average RMS Energy:** {rms_energy}")
                     st.write(f"**Loudness:** {loudness}")
-                    st.write("---")  # Separator for each file analysis
+                    st.write("---")
 
-            # Send the analysis results to the assistant
+            # Send the analysis results to the assistant once per submit
             with st.chat_message("assistant"):
                 formatted_results = format_analysis_results_for_prompt(st.session_state.audio_analysis_results)
                 prompt = f"Here are the audio analysis results:\n{formatted_results}"
@@ -814,6 +843,9 @@ def main():
                 st.write(assistant_response)
                 append_message("assistant", assistant_response)
                 log_conversation(st.session_state.messages)
+
+            st.session_state.audio_analysis_done = True
+            st.stop()  # prevent any further rerun work this cycle
 
             #st.write("Looking for inspiration?")
 
@@ -857,9 +889,6 @@ def main():
             #             response = run_assistant(client, st.session_state.messages)
             #             append_message('assistant', response)
             #             st.write(response)
-
-
-            st.session_state.audio_analysis_done = True
 
 
 
