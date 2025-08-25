@@ -447,48 +447,45 @@ def main():
 
         st.divider()
 
-        # Image Upload
-        if model in ["gpt-4o-2024-05-13", "gpt-4-turbo"]:
+        st.write("### **🖼️ Add an image:**")
 
-            st.write("### **🖼️ Add an image:**")
+        def add_image_to_messages():
+            if st.session_state.uploaded_img or (
+                    "camera_img" in st.session_state and st.session_state.camera_img):
+                img_type = st.session_state.uploaded_img.type if st.session_state.uploaded_img else "image/jpeg"
+                raw_img = Image.open(st.session_state.uploaded_img or st.session_state.camera_img)
+                img = get_image_base64(raw_img)
+                st.session_state.messages.append(
+                    {
+                        "role": "user",
+                        "content": [{
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{img_type};base64,{img}"}
+                        }]
+                    }
+                )
 
-            def add_image_to_messages():
-                if st.session_state.uploaded_img or (
-                        "camera_img" in st.session_state and st.session_state.camera_img):
-                    img_type = st.session_state.uploaded_img.type if st.session_state.uploaded_img else "image/jpeg"
-                    raw_img = Image.open(st.session_state.uploaded_img or st.session_state.camera_img)
-                    img = get_image_base64(raw_img)
-                    st.session_state.messages.append(
-                        {
-                            "role": "user",
-                            "content": [{
-                                "type": "image_url",
-                                "image_url": {"url": f"data:{img_type};base64,{img}"}
-                            }]
-                        }
-                    )
+        cols_img = st.columns(2)
 
-            cols_img = st.columns(2)
+        with cols_img[0]:
+            with st.popover("📁 Upload"):
+                st.file_uploader(
+                    "Upload an image",
+                    type=["png", "jpg", "jpeg"],
+                    accept_multiple_files=False,
+                    key="uploaded_img",
+                    on_change=add_image_to_messages,
+                )
 
-            with cols_img[0]:
-                with st.popover("📁 Upload"):
-                    st.file_uploader(
-                        "Upload an image",
-                        type=["png", "jpg", "jpeg"],
-                        accept_multiple_files=False,
-                        key="uploaded_img",
+        with cols_img[1]:
+            with st.popover("📸 Camera"):
+                activate_camera = st.checkbox("Activate camera")
+                if activate_camera:
+                    st.camera_input(
+                        "Take a picture",
+                        key="camera_img",
                         on_change=add_image_to_messages,
                     )
-
-            with cols_img[1]:
-                with st.popover("📸 Camera"):
-                    activate_camera = st.checkbox("Activate camera")
-                    if activate_camera:
-                        st.camera_input(
-                            "Take a picture",
-                            key="camera_img",
-                            on_change=add_image_to_messages,
-                        )
 
         # Audio Upload
         st.write("#")

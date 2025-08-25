@@ -46,26 +46,71 @@ extensions = ['mp3', 'wav', 'flac', 'ogg']
 
 # Function to create a thread and run the assistant with streaming response
 def run_assistant(client, conversation):
+    # 1) Create (or reuse) a thread with your chat history
     thread = client.beta.threads.create(messages=conversation)
-    run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=st.secrets["OPENAI_ASSISTANT_ID"], stream=True)
 
-    latest_message_content = ""
+    # 2) Stream the run and render deltas as they arrive
+    placeholder = st.empty()
+    streamed_text = []
 
     with st.spinner("Comparing songs..."):
-        for response in run:
-            if 'partial_response' in response:
-                latest_message_content += response['partial_response']['text']
-                st.write_stream(latest_message_content)  # Update the interface with the partial response
+        # The stream context yields structured events
+        with client.beta.threads.runs.stream(
+            thread_id=thread.id,
+            assistant_id=st.secrets["OPENAI_ASSISTANT_ID"],
+        ) as stream:
+            for event in stream:
+                # Newer SDKs use either .type or .event; handle both safely
+                etype = getattr(event, "type", None) or getattr(event, "event", None)
 
-    message_response = client.beta.threads.messages.list(thread_id=thread.id)
-    messages = message_response.data
+                # Text delta events arrive token-by-token / chunk-by-chunk
+                if etype == "response.output_text.delta":
+                    # event.delta holds the text fragment in newer SDKs
+                    delta = getattr(event, "delta", "") or getattr(getattr(event, "data", None), "delta", "")
+                    if delta:
+                        streamed_text.append(delta)
+                        placeholder.markdown("".join(streamed_text))
+                # Some SDK builds also emit per‑message deltas
+                elif etype == "thread.message.delta":
+                    parts = getattr(event, "data", None)
+                    if parts and hasattr(parts, "delta") and hasattr(parts.delta, "content"):
+                        for c in parts.delta.content:
+                            t = getattr(c, "text", None)
+                            if t and hasattr(t, "value"):
+                                streamed_text.append(t.value)
+                                placeholder.markdown("".join(streamed_text))
+                # When the response is complete
+                elif etype in ("response.completed", "thread.run.completed"):
+                    # We’ll break; final text will be fetched below for robustness
+                    break
 
-    # Accessing the last message and getting the text content properly
-    latest_message = messages[0]
-    latest_message_content = latest_message.content[0].text.value
+            # Block until the run is fully done (handles tool calls etc.)
+            stream.until_done()
 
-    # Return the latest message and all messages
-    return latest_message_content
+    # 3) Retrieve the final assistant message text (authoritative)
+    msgs = client.beta.threads.messages.list(thread_id=thread.id)
+    # messages are usually newest-first; grab the first assistant message
+    latest_assistant_text = ""
+    for m in msgs.data:
+        if m.role == "assistant" and m.content:
+            # concatenate any text parts (there can be multiple)
+            chunks = []
+            for c in m.content:
+                if hasattr(c, "text") and hasattr(c.text, "value"):
+                    chunks.append(c.text.value)
+            latest_assistant_text = "".join(chunks).strip()
+            break
+
+    # Make sure the placeholder shows the final text (in case last chunks arrived post-loop)
+    if latest_assistant_text:
+        placeholder.markdown(latest_assistant_text)
+    else:
+        latest_assistant_text = "".join(streamed_text).strip()
+        if latest_assistant_text:
+            placeholder.markdown(latest_assistant_text)
+
+    return latest_assistant_text
+
 
 # Function to convert file to base64
 def get_image_base64(image_raw):
@@ -263,8 +308,6 @@ def separate_single(input_file, outp):
     if p.returncode != 0:
         print("Command failed, something went wrong.")
 
-def list_audio_files(upload_dir):
-    return [file for file in Path(upload_dir).glob("*.mp3")]
 
 def display_audio_files(files):
     for file in files:
@@ -315,6 +358,15 @@ def reset_conversation():
     clear_upload_dir(output_dir)
 
 def main():
+
+    # --- Page Config ---
+    st.set_page_config(
+        page_title="🎵 What Type of Music Do You Like? 🎵",
+        page_icon="🤖🎵",
+        layout="centered",
+        initial_sidebar_state="expanded",
+    )
+
     # --- Session State ---
     # Use session state to store global variables
     if 'conversation_reset' not in st.session_state:
@@ -344,13 +396,6 @@ def main():
     # Initialize special_action
     special_action = False
 
-    # --- Page Config ---
-    st.set_page_config(
-        page_title="🎵 What Type of Music Do You Like? 🎵",
-        page_icon="🤖🎵",
-        layout="centered",
-        initial_sidebar_state="expanded",
-    )
     # --- Header ---
     st.markdown(
         """
@@ -447,48 +492,45 @@ def main():
 
         st.divider()
 
-        # Image Upload
-        if model in ["gpt-4o-2024-05-13", "gpt-4-turbo"]:
+        st.write("### **🖼️ Add an image:**")
 
-            st.write("### **🖼️ Add an image:**")
+        def add_image_to_messages():
+            if st.session_state.uploaded_img or (
+                    "camera_img" in st.session_state and st.session_state.camera_img):
+                img_type = st.session_state.uploaded_img.type if st.session_state.uploaded_img else "image/jpeg"
+                raw_img = Image.open(st.session_state.uploaded_img or st.session_state.camera_img)
+                img = get_image_base64(raw_img)
+                st.session_state.messages.append(
+                    {
+                        "role": "user",
+                        "content": [{
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{img_type};base64,{img}"}
+                        }]
+                    }
+                )
 
-            def add_image_to_messages():
-                if st.session_state.uploaded_img or (
-                        "camera_img" in st.session_state and st.session_state.camera_img):
-                    img_type = st.session_state.uploaded_img.type if st.session_state.uploaded_img else "image/jpeg"
-                    raw_img = Image.open(st.session_state.uploaded_img or st.session_state.camera_img)
-                    img = get_image_base64(raw_img)
-                    st.session_state.messages.append(
-                        {
-                            "role": "user",
-                            "content": [{
-                                "type": "image_url",
-                                "image_url": {"url": f"data:{img_type};base64,{img}"}
-                            }]
-                        }
-                    )
+        cols_img = st.columns(2)
 
-            cols_img = st.columns(2)
+        with cols_img[0]:
+            with st.popover("📁 Upload"):
+                st.file_uploader(
+                    "Upload an image",
+                    type=["png", "jpg", "jpeg"],
+                    accept_multiple_files=False,
+                    key="uploaded_img",
+                    on_change=add_image_to_messages,
+                )
 
-            with cols_img[0]:
-                with st.popover("📁 Upload"):
-                    st.file_uploader(
-                        "Upload an image",
-                        type=["png", "jpg", "jpeg"],
-                        accept_multiple_files=False,
-                        key="uploaded_img",
+        with cols_img[1]:
+            with st.popover("📸 Camera"):
+                activate_camera = st.checkbox("Activate camera")
+                if activate_camera:
+                    st.camera_input(
+                        "Take a picture",
+                        key="camera_img",
                         on_change=add_image_to_messages,
                     )
-
-            with cols_img[1]:
-                with st.popover("📸 Camera"):
-                    activate_camera = st.checkbox("Activate camera")
-                    if activate_camera:
-                        st.camera_input(
-                            "Take a picture",
-                            key="camera_img",
-                            on_change=add_image_to_messages,
-                        )
 
         # Audio Upload
         st.write("#")
@@ -616,7 +658,10 @@ def main():
             """)
 
     # Chat input
-    if prompt := st.chat_input("Please start by uploading your files in the following format: 'SongTitle_ArtistName.MP3'...") or audio_prompt:
+    user_text = st.chat_input(
+        "Please start by uploading your files in the following format: 'SongTitle_ArtistName.MP3'...")
+    prompt = user_text or audio_prompt
+    if prompt:
         # Flag to check if a special action is requested
         special_action = False
 

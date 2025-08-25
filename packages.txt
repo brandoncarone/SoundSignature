@@ -5,3 +5,5 @@ libyaml-dev
 libfftw3-dev
 libsamplerate0-dev
 libtag1-dev
+build-essential
+pkg-config
