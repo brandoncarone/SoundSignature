@@ -120,16 +120,16 @@ def get_image_base64(image_raw):
 
     return base64.b64encode(img_byte).decode('utf-8')
 
-def save_uploaded_file(upload_dir, uploaded_file):
+def save_uploaded_file(dir, uploaded_file):
     # Create a directory to save uploaded files if it doesn't exist
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
+    if not os.path.exists(dir):
+        os.makedirs(dir)
 
     # Get the file details
     file_name = uploaded_file.name
 
     # Save the uploaded file to the specified directory
-    file_path = os.path.join(upload_dir, file_name)
+    file_path = os.path.join(dir, file_name)
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
@@ -334,10 +334,10 @@ def display_audio_files(files):
 
         st.pyplot(fig)
 
-def clear_upload_dir(upload_dir):
-    if os.path.exists(upload_dir):
-        shutil.rmtree(upload_dir)
-    os.makedirs(upload_dir)
+def clear_upload_dir(dir):
+    if os.path.exists(dir):
+        shutil.rmtree(dir)
+    os.makedirs(dir)
 
 def log_conversation(conversation):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -721,8 +721,6 @@ def main():
                 st.session_state.chosen_file_path = file_options[st.session_state.chosen_file]
 
             if st.session_state.chosen_file_path:
-                # Process the chosen file
-                output_dir = "separated_files"
 
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
