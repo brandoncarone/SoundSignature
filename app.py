@@ -305,6 +305,9 @@ def separate_single(input_file, outp):
     if p.returncode != 0:
         print("Command failed, something went wrong.")
 
+def as_scalar(x):
+    # robustly convert numpy scalars/arrays -> python float
+    return float(np.asarray(x).ravel()[0])
 
 def display_audio_files(files):
     for file in files:
@@ -780,9 +783,15 @@ def main():
                 with st.spinner(f"Analyzing {up.name}..."):
                     # If you ever want to do partial analysis, pass duration=90.0 to librosa.load
                     # Right now we analyze the FULL song:
-                    (sr, duration, magnitude_spectrogram, tempo, pulse_clarity,
-                     spectral_centroids, spectral_bandwidth, spectral_flux,
-                     rms_energy, loudness, key, scale, strength) = analyze_audio(file_path)
+                    (sr, duration, magnitude_spectrogram, tempos, pulse_clarity,
+                     spectral_centroids, spectral_bandwidths, spectral_fluxs,
+                     rms_energys, loudness, key, scale, strength) = analyze_audio(file_path)
+
+                    tempo = int(round(as_scalar(tempos)))
+                    spectral_centroid = float(np.mean(spectral_centroids))
+                    spectral_bandwidth = float(np.mean(spectral_bandwidths))
+                    spectral_flux = float(np.mean(spectral_fluxs))
+                    rms_energy = float(np.mean(rms_energys))
 
                     st.success(f"Analysis for {up.name} complete!")
 
@@ -801,14 +810,14 @@ def main():
                         'file_name': up.name,
                         'path': file_path,
                         'duration': duration,
-                        'tempo': int(tempo),
+                        'tempo': tempo,
                         'pulse_clarity': pulse_clarity,
                         'key': key + ' ' + scale,
                         'key_strength': strength,
-                        'spectral_centroids': float(np.mean(spectral_centroids)),
-                        'spectral_bandwidth': float(np.mean(spectral_bandwidth)),
-                        'spectral_flux': float(np.mean(spectral_flux)),
-                        'rms_energy': float(np.mean(rms_energy)),
+                        'spectral_centroids': spectral_centroid,
+                        'spectral_bandwidth': spectral_bandwidth,
+                        'spectral_flux': spectral_flux,
+                        'rms_energy': rms_energy,
                         'loudness': loudness,
                     })
                     st.session_state.analyzed_files.add(up.name)
@@ -820,7 +829,7 @@ def main():
                     st.write(f"**Pulse Clarity (std of onset strength):** {pulse_clarity}")
                     st.write(f"**Key:** {key} {scale}")
                     st.write(f"**Key Strength:** {strength}")
-                    st.write(f"**Average Spectral Centroid:** {spectral_centroids}")
+                    st.write(f"**Average Spectral Centroid:** {spectral_centroid}")
                     st.write(f"**Average Spectral Bandwidth:** {spectral_bandwidth}")
                     st.write(f"**Spectral Flux:** {spectral_flux}")
                     st.write(f"**Average RMS Energy:** {rms_energy}")
