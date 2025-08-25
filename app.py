@@ -149,9 +149,6 @@ def analyze_audio(file):
     # Load the audio file using librosa
     y, sr = librosa.load(file)
     duration = len(y) / sr
-    max_amplitude = np.max(y)
-    min_amplitude = np.min(y)
-    mean_amplitude = np.mean(y)
 
     stft = librosa.stft(y)
     magnitude_spectrogram = np.abs(stft)
@@ -174,7 +171,7 @@ def analyze_audio(file):
     key_extractor = es.KeyExtractor()
     key, scale, strength = key_extractor(audio)
 
-    return sr, duration, magnitude_spectrogram, max_amplitude, min_amplitude, mean_amplitude, tempo, beats, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
+    return sr, duration, magnitude_spectrogram, tempo, pulse_clarity, spectral_centroids, spectral_bandwidth, spectral_flux, rms_energy, loudness, key, scale, strength
 
 # def analyze_audio(file):
 #     # Ensure the file exists
