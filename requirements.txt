@@ -1,7 +1,7 @@
 librosa==0.10.2.post1
 numpy==1.26.4
-scipy==1.11.4
-essentia
+scipy==1.13.1
+essentia==2.1b6.dev1389
 soundfile==0.12.1
 audioread>=3.0.0
 matplotlib==3.8.3
@@ -10,11 +10,11 @@ pandas==2.2.1
 pillow==10.3.0
 python-dotenv==1.0.1
 PyYAML==6.0.1
-scikit-learn
+scikit-learn==1.4.2
 six==1.16.0
 streamlit>=1.35.0
 git+https://github.com/CPJKU/madmom
-audio-recorder-streamlit
+audio-recorder-streamlit==0.0.10
 demucs==4.0.1
-torch==2.2.2+cpu
-torchaudio==2.2.2+cpu
+torch==2.2.2
+torchaudio==2.2.2
