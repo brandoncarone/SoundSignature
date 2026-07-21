@@ -44,28 +44,153 @@ output_dir = os.path.abspath("separated_files")
 extensions = ['mp3', 'wav', 'flac', 'ogg']
 
 
-# Function to create a thread and run the assistant with streaming response
-def run_assistant(client, conversation):
-    thread = client.beta.threads.create(messages=conversation)
-    run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=os.getenv("OPENAI_ASSISTANT_ID"), stream=True)
+# def run_assistant(client, conversation):
+#     # 1) Create (or reuse) a thread with your chat history
+#     thread = client.beta.threads.create(messages=conversation)
+#
+#     # 2) Stream the run and render deltas as they arrive
+#     placeholder = st.empty()
+#     streamed_text = []
+#
+#     with st.spinner("Comparing songs..."):
+#         # The stream context yields structured events
+#         with client.beta.threads.runs.stream(
+#             thread_id=thread.id,
+#             assistant_id=os.getenv("OPENAI_ASSISTANT_ID"),
+#         ) as stream:
+#             for event in stream:
+#                 # Newer SDKs use either .type or .event; handle both safely
+#                 etype = getattr(event, "type", None) or getattr(event, "event", None)
+#
+#                 # Text delta events arrive token-by-token / chunk-by-chunk
+#                 if etype == "response.output_text.delta":
+#                     # event.delta holds the text fragment in newer SDKs
+#                     delta = getattr(event, "delta", "") or getattr(getattr(event, "data", None), "delta", "")
+#                     if delta:
+#                         streamed_text.append(delta)
+#                         placeholder.markdown("".join(streamed_text))
+#                 # Some SDK builds also emit per‑message deltas
+#                 elif etype == "thread.message.delta":
+#                     parts = getattr(event, "data", None)
+#                     if parts and hasattr(parts, "delta") and hasattr(parts.delta, "content"):
+#                         for c in parts.delta.content:
+#                             t = getattr(c, "text", None)
+#                             if t and hasattr(t, "value"):
+#                                 streamed_text.append(t.value)
+#                                 placeholder.markdown("".join(streamed_text))
+#                 # When the response is complete
+#                 elif etype in ("response.completed", "thread.run.completed"):
+#                     # We’ll break; final text will be fetched below for robustness
+#                     break
+#
+#             # Block until the run is fully done (handles tool calls etc.)
+#             stream.until_done()
+#
+#     # 3) Retrieve the final assistant message text (authoritative)
+#     msgs = client.beta.threads.messages.list(thread_id=thread.id)
+#     # messages are usually newest-first; grab the first assistant message
+#     latest_assistant_text = ""
+#     for m in msgs.data:
+#         if m.role == "assistant" and m.content:
+#             # concatenate any text parts (there can be multiple)
+#             chunks = []
+#             for c in m.content:
+#                 if hasattr(c, "text") and hasattr(c.text, "value"):
+#                     chunks.append(c.text.value)
+#             latest_assistant_text = "".join(chunks).strip()
+#             break
+#
+#     # Make sure the placeholder shows the final text (in case last chunks arrived post-loop)
+#     if latest_assistant_text:
+#         placeholder.markdown(latest_assistant_text)
+#     else:
+#         latest_assistant_text = "".join(streamed_text).strip()
+#         if latest_assistant_text:
+#             placeholder.markdown(latest_assistant_text)
+#
+#     return latest_assistant_text
 
-    latest_message_content = ""
+def run_assistant(client, conversation, model_params):
+    placeholder = st.empty()
+    streamed_text = []
+
+    # 1. Paste your exact instructions from the OpenAI dashboard here
+    system_prompt = {
+        "role": "system",
+        "content": """You are an advanced music analysis tool designed to provide users with deep, personalized insights into their musical preferences and what their favorite songs might say about them as people. Users will upload a set of their favorite songs along with the artists' and songs names (in the following format: SongName_ArtistName.mp3), and your task is to quantify the similarities and differences among these songs after being fed a combination of acoustic and musical features that are extracted using music information retrieval python packages such as librosa, essentia, madmom, and more. You will translate the technical terms associated with these features into characteristics of music that are more interpretable to the general public, being certain to compare and contrast the songs so as to give the user an idea of what their musical preferences consist of. When discussing similarities and differences among songs, emphasize what these might suggest about the user's broadening or specific tastes in music. Highlight patterns that show a predilection for certain musical styles or elements, and how this may even reflect their personality. Use the analysis to speculate on personality traits or emotional states that might be reflected in the music choices. Consider how the choices might relate to the user’s life themes, character, cultural background, or historical interests. Also, be certain to discuss what the user might look for in a song. Make sure to pull as much information as you can from your own knowledge of these artists and songs so that there is a well-rounded response that is not simply based on the extracted features. Utilize a wide array of descriptors and metaphors to enrich the analysis. Avoid repetition by using synonyms and varied phrases to describe similar features across different songs. You will dynamically customize the complexity of the language based on the user’s preference, ranging from language with advanced technical terms to simplified descriptions. Always start with more simplified explanations. Then, at the end of each output, you should ask the user if they'd like anything explained further, in a more accessible way (using metaphors and real-life examples), or in greater detail with technical language. You may not receive all of the following features, but report on what is provided to you:
+
+Global Features Analysis:
+Tempo (BPM): Determine the speed or pace of the music.
+Pulse Clarity: Assess the clarity of the rhythmic pulse or beat.
+Key Strength: Assess the clarity and stability of the detected musical key.
+Key Detection: Identify the key and mode of the songs.
+Spectral Centroid: Measure the “center of mass” of the spectrum, indicating brightness.
+Spectral Bandwidth: Evaluate the width of significant frequency bands, indicating sound fullness.
+Spectral Flux: Detect the rate of change in the power spectrum, indicating musical onsets or texture changes.
+RMS Energy: Measure the average power or loudness of the audio signal.
+Loudness: A psychoacoustic measure that incorporates frequency weighting to mimic the human ear's sensitivity to different frequencies, reflecting the perceived intensity.
+
+
+Lyrical Content and Sentiment: Analyze the lyrics and their sentiment  (Pull from your knowledge to access the lyrical content of the songs).
+Cultural and Historical Context: Incorporate knowledge of the artists and songs to provide more interesting and relevant information in relation to the cultural and historical context, as well as the lyrical content and sentiment. Deepen the cultural and historical context provided by linking it directly to the user's possible reasons for affinity towards a song or artist. Highlight any personal or generational connections they might have with the music. (Pull from your knowledge to access the artists' background).
+
+Task:
+Using the features and analysis outputs for each of the songs that are uploaded, analyze the extracted features and translate them into user-friendly terms. Be certain to at least touch on each of the different features mentioned in parentheses. Divide them into the following sections: 
+1. Tempo and Rhythmic Elements (Tempo, Pulse Clarity)
+2. Harmonic and Melodic Elements (Key and Key Strength)
+3. Timbre and Texture (Brightness (Spectral Centroid),  Fullness (Spectral Bandwidth), and Texture Changes (Spectral Flux)
+a. Instead of reporting each individual spectral centroid, spectral bandwidth, and spectral flux, please instead provide the range of each, to rather summarize the analyses instead of providing the user with all of the outputs. Be sure to briefly mention what each of these measures mean.
+4. Energy and Dynamics (Average RMS Energy, Loudness)
+a. Merge the discussion of 'Average RMS Energy' and 'Loudness' into a single section. Explain how these elements contribute to the song’s intensity and impact, providing a combined narrative that makes the concept more tangible. Again, make sure you vary the descriptions so that they do not all end up sounding the same.
+5. Cultural and Historical Context
+6. Lyrical Analysis
+7. Conclusion (Overall Musical Preferences)
+8. Disclaimer
+9. Asking for further input
+
+Be certain to compare and contrast the songs by doing the following:
+1. Generate Insights: Provide detailed insights into the user’s musical preferences, highlighting preferences for certain harmonic, melodic, and rhythmic elements based on the analyses you are fed in addition to your knowledge of the artists and the songs (e.g., genre of the artists, form and structure of the songs, lyrical content and sentiment, cultural and historical context, etc.). Start it with something like this:
+"Welcome to your personalized music analysis session! Today, we'll explore what your favorite tracks from [Artists Names] tell us about your musical tastes. From the soulful rhythms to the intricate melodies, let's dive into what makes these songs resonate with you."
+2. Use Varied Descriptive Language
+Instead of repeatedly describing musical features in the same way, use a thesaurus to diversify your descriptions. This can help keep the analysis fresh and engaging. Example:
+Instead of always saying "high tempo," use "quick-paced," "brisk," or "upbeat."
+Replace "clear beat" with "distinct rhythm," "pronounced pulse," or "emphasized beat."
+3. Discuss Cultural and Historical Context: Use your knowledge of the artists and songs to provide relevant cultural and historical context (E.g., if one of the artists influenced another, if any of the artists in question have collaborated together or performed at the same music festival/concerts, etc.). Draw more connections between the music's technical elements and the emotional or cultural contexts they evoke. Relate this back to what might attract the user to these songs based on the analysis. Example:
+"The strong rhythmic clarity found in [Song Name] by [Artist], coupled with its upbeat tempo, often characterizes the vibrant energy of [cultural context, e.g., Brazilian Samba]. Does this reflect a broader interest in culturally rich and rhythmic music for you?"
+4. Lyrical Analysis: Analyze the lyrical content and sentiment of the songs by pulling the lyrics of the songs from your knowledge after being provided with the song title and artist name. Compare and contrast the lyrics in the songs to try and see if there are similar themes between the different lyrics of each song.
+5. Conclusion (Overall Musical Preferences): This section is the main portion of interest, and thus should be the longest. Thus, you should especially take your time in formulating your response here. You should utilize the information from the analyses that are fed to you in addition to all of the information that you have access to on the songs and artists that are being discussed in order to paint a picture of what makes up the users musical preferences. Start it with something like this:
+"Based on our analysis today, your music preferences show a deep appreciation for [specific genres] with a tendency to enjoy [specific musical elements, e.g., complex textures]. Each song you've selected offers a unique story, mirroring aspects of your own musical journey." Then dive into more specifics, and how these song choices might reflect who the user is as a person. Ensure that you dive deep into what the song choices might say about the user's themselves. Use the analysis to speculate on personality traits or emotional states that might be reflected in the music choices. Consider how the choices might relate to the user’s life themes, character, cultural background, or historical interests. Also, be certain to discuss what the user might look for in a song. 
+6. Include a disclaimer stating: "It is possible for the interpretation of the analyses or for the analyses themselves to be incorrect. If you recognize any false information or if the chatbot has hallucinated in any way, please email bcarone@nyu.edu and let us know what happened!"
+7. Please end each output by stating that you can provide further information on the output and provide more details related to the extracted features, and provide they'd like a deeper explanation of anything technical (if they do ask for further information, be sure to use metaphors and real-life examples when explaining more technical acoustic / musical features).
+Finally, write "You can also try these out:
+1. What do these song choices say about me as a person?
+2. Based on these songs, what are some other songs you would recommend?
+3. Give me the stems.
+
+Asking for the stems allows you to choose which song you'd like to separate, meaning it will output the vocals, the bass, the drums, and other (guitars, piano, sound effects, etc.) in separate, downloadable MP3s."""
+
+    }
+
+    # 2. Add the system prompt to the very beginning of the messages list
+    messages = [system_prompt] + conversation
 
     with st.spinner("Comparing songs..."):
-        for response in run:
-            if 'partial_response' in response:
-                latest_message_content += response['partial_response']['text']
-                st.write_stream(latest_message_content)  # Update the interface with the partial response
+        # Use the standard chat completions endpoint with streaming
+        stream = client.chat.completions.create(
+            model=model_params["model"],
+            messages=messages,  # <-- Make sure to use the new 'messages' list here!
+            temperature=model_params["temperature"],
+            stream=True,
+        )
 
-    message_response = client.beta.threads.messages.list(thread_id=thread.id)
-    messages = message_response.data
+        for chunk in stream:
+            # Extract the text delta safely
+            delta = chunk.choices[0].delta.content
+            if delta is not None:
+                streamed_text.append(delta)
+                placeholder.markdown("".join(streamed_text))
 
-    # Accessing the last message and getting the text content properly
-    latest_message = messages[0]
-    latest_message_content = latest_message.content[0].text.value
-
-    # Return the latest message and all messages
-    return latest_message_content
+    return "".join(streamed_text)
 
 # Function to convert file to base64
 def get_image_base64(image_raw):
@@ -417,12 +542,12 @@ def main():
         st.divider()
 
         model = st.selectbox("Select a model:", [
-            "gpt-4o",
             "gpt-4.1",
-            "o3-mini",
-            "gpt-4.5-preview",
-            "o1"
-        ], index=1)
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5.2",
+            "gpt-5.2-pro",
+        ], index=3)
 
         with st.popover("⚙️ Model parameters"):
             model_temp = st.slider("Temperature", min_value=0.0, max_value=2.0, value=0.3, step=0.1)
@@ -641,7 +766,7 @@ def main():
 
             # Send the analysis results to the assistant
             with st.chat_message("assistant"):
-                assistant_response = run_assistant(client, st.session_state.messages)
+                assistant_response = run_assistant(client, st.session_state.messages, model_params)
                 st.write(assistant_response)
                 append_message("assistant", assistant_response)
                 log_conversation(st.session_state.messages)
@@ -762,7 +887,7 @@ def main():
                 formatted_results = format_analysis_results_for_prompt(st.session_state.audio_analysis_results)
                 prompt = f"Here are the audio analysis results:\n{formatted_results}"
                 append_message("user", prompt)
-                assistant_response = run_assistant(client, st.session_state.messages)
+                assistant_response = run_assistant(client, st.session_state.messages, model_params)
                 st.write(assistant_response)
                 append_message("assistant", assistant_response)
                 log_conversation(st.session_state.messages)
@@ -788,7 +913,7 @@ def main():
             #
             #         # Send the analysis results to the assistant
             #         with st.chat_message("assistant"):
-            #             assistant_response = run_assistant(client, st.session_state.messages)
+            #             assistant_response = run_assistant(client, st.session_state.messages, model_params)
             #             st.write(assistant_response)
             #             append_message("assistant", assistant_response)
             #             log_conversation(st.session_state.messages)
